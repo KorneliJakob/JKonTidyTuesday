@@ -1,0 +1,151 @@
+---
+title: "tidytuesday 2"
+author: "Jakob Korneli"
+format: html
+editor: visual
+echo: false
+---
+
+## Tidy Tuesday
+
+```{r, echo=FALSE, results='hide'}
+setwd("C:/Users/JakobFreak/Desktop/TidyTuesday")
+source("functions/pkg_load.R")
+
+source("functions/load_fonts.R")
+
+load(c("tidyverse",
+       "janitor",
+       "ggtext",
+       "gt",
+       "devtools",
+       "hrbrthemes",
+       "showtext",
+       "sysfonts",
+       "rnaturalearth",
+       "sf",
+       "terra",
+       "patchwork"))
+
+
+indoor_pollution <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-04-12/indoor_pollution.csv')
+
+no_legend <- theme(legend.position = "none")
+
+set_theme(theme_ipsum_rc(base_family = "Roboto Condensed", base_size = 16))
+
+
+```
+
+```{r, fig.width=15, fig.height=10,unit = "in" ,dpi=300}
+# cleaning names with janitor
+indoor_pollution <- clean_names(indoor_pollution)
+names(indoor_pollution) 
+
+# chaning some names
+indoor_pollution <- indoor_pollution %>% mutate(death_risk_pc = deaths_cause_all_causes_risk_household_air_pollution_from_solid_fuels_sex_both_age_age_standardized_percent, country = entity)
+
+# filter out everything that is not a country
+indoor_pollution_countries <- indoor_pollution %>% filter(!is.na(code))
+
+# loading country geometries, filter geometries to countries in dataset
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world <- world %>%  filter(name_en %in% indoor_pollution_countries$country)
+
+# this is an artefact
+indoor_pollution_countries_sf= indoor_pollution_countries
+
+# creating base-year table
+base <- indoor_pollution_countries_sf %>% 
+    filter(year =="1990") %>%
+  select(entity, death_risk_1990 = death_risk_pc)
+base<- as.data.frame(base)
+
+# joining base year and data tables, calculating change
+indoor_pollution_countries_sf <- indoor_pollution_countries_sf %>%
+  left_join(base, by = "entity") %>% 
+  mutate(death_risk_change = death_risk_pc - death_risk_1990) %>% ungroup()
+
+# grouping into five year chunks and calculating mean of changes
+indoor_pollution_countries_sf_five <- indoor_pollution_countries_sf %>% 
+  mutate(five_years = (year %/% 5) * 5) %>% 
+  group_by(entity,five_years) %>% summarize(death_risk_five_year = mean(death_risk_change, na.rm = T), .groups = "drop") %>% ungroup()
+
+# add geometry data
+indoor_pollution_countries_sf_five <- left_join(world, indoor_pollution_countries_sf_five,  by = c("name_en" = "entity"))
+
+# making a plotting function so I dont have to copy the code twice
+plot <- function(x){
+ggplot(x ,aes(fill = death_risk_five_year))+
+  scale_fill_gradient(low = "darkgreen", high = "grey")+
+  geom_sf()+
+  facet_wrap(~five_years, nrow = 3)+
+  labs(fill = "death risk change\n in % since 1990")+
+  theme(legend.position = "bottom")+
+  coord_sf(datum = NA) + 
+  theme(panel.background = element_rect(color = "black"),
+        strip.text = element_text(size = 16, margin = margin(t = 1, b = 1)))
+  }
+
+# plotting asia
+asia <- plot(indoor_pollution_countries_sf_five %>% filter(region_un == "Asia")) + no_legend 
+
+# plotting africa
+africa <- plot(indoor_pollution_countries_sf_five %>% filter(region_un == "Africa"))
+
+
+# creating a table with percential changes. Arranged by impact
+table <- indoor_pollution_countries_sf_five %>% arrange(death_risk_five_year) %>% 
+  select(name_en, death_risk_five_year, five_years) %>% st_drop_geometry() %>% 
+  mutate(death_risk_five_year = round(death_risk_five_year, digits = 2)) %>% gt()
+                                    
+# plotting all together
+(asia + africa) +
+  plot_annotation(
+    title = "**Death Risk by Indoor Air Pollution Decreased<br> in the Past 30 Years**",
+    caption = "Especially in developing countries <span style='color:darkgreen;'>Indoor Air Pollution</span> decreased<br> by up to **11.79%** compared to 1990.",
+    theme = theme(
+      plot.title = element_markdown( size = 22),
+      plot.caption = element_markdown( size = 19),
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.line = element_blank(),
+      plot.background = element_rect(color = "black")
+    )
+  )&
+  theme(
+    plot.margin = margin(4,3,3,2)
+  )
+```
+
+```{r}
+
+library(ragg)
+
+ragg::agg_jpeg(
+  "22-04-12_Indoor_Air_Pollution/5_year_change_africa_asia.jpg",
+  width = 15, height = 10, units = "in", res = 300
+)
+print((asia + africa) +
+  plot_annotation(
+    title = "**Death Risk by Indoor Air Pollution Decreased<br> in the Past 30 Years**",
+    caption = "Especially in developing countries <span style='color:darkgreen;'>Indoor Air Pollution</span> decreased<br> by up to **11.79%** compared to 1990.",
+    theme = theme(
+      plot.title = element_markdown( size = 22),
+      plot.caption = element_markdown( size = 19),
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.line = element_blank(),
+      plot.background = element_rect(color = "black")
+    )
+  )&
+  theme(
+    plot.margin = margin(4,3,3,2)
+  )
+  )
+dev.off()
+```
+
+![figure](22-04-12_Indoor_Air_Pollution/5_year_change_africa_asia.jpg)
