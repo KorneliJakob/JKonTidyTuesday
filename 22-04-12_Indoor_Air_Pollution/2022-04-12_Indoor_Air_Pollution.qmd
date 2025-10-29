@@ -28,11 +28,11 @@ load(c("tidyverse",
        "patchwork"))
 
 
-indoor_pollution <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-04-12/indoor_pollution.csv')
+indoor_pollution <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2022/2022-04-12/indoor_pollution.csv',show_col_types = FALSE)
 
 no_legend <- theme(legend.position = "none")
 
-set_theme(theme_ipsum_rc(base_family = "Roboto Condensed", base_size = 16))
+set_theme(theme_ipsum_rc(base_family = "Roboto Condensed", base_size = 4))
 
 
 ```
@@ -40,7 +40,6 @@ set_theme(theme_ipsum_rc(base_family = "Roboto Condensed", base_size = 16))
 ```{r, fig.width=15, fig.height=10,unit = "in" ,dpi=300}
 # cleaning names with janitor
 indoor_pollution <- clean_names(indoor_pollution)
-names(indoor_pollution) 
 
 # chaning some names
 indoor_pollution <- indoor_pollution %>% mutate(death_risk_pc = deaths_cause_all_causes_risk_household_air_pollution_from_solid_fuels_sex_both_age_age_standardized_percent, country = entity)
@@ -80,15 +79,16 @@ ggplot(x ,aes(fill = death_risk_five_year))+
   scale_fill_gradient(low = "darkgreen", high = "grey")+
   geom_sf()+
   facet_wrap(~five_years, nrow = 3)+
-  labs(fill = "death risk change\n in % since 1990")+
-  theme(legend.position = "bottom")+
+  labs(fill = "death risk change<br> in % since 1990")+
+  theme(legend.position = "top")+
   coord_sf(datum = NA) + 
   theme(panel.background = element_rect(color = "black"),
-        strip.text = element_text(size = 16, margin = margin(t = 1, b = 1)))
+        strip.text = element_text(size = 4, margin = margin(t = 1, b = 1)),
+        legend.title =  element_markdown(size = 4))
   }
 
 # plotting asia
-asia <- plot(indoor_pollution_countries_sf_five %>% filter(region_un == "Asia")) + no_legend 
+asia <- plot(indoor_pollution_countries_sf_five %>% filter(region_un == "Asia"))+ no_legend  
 
 # plotting africa
 africa <- plot(indoor_pollution_countries_sf_five %>% filter(region_un == "Africa"))
@@ -105,22 +105,22 @@ table <- indoor_pollution_countries_sf_five %>% arrange(death_risk_five_year) %>
     title = "**Death Risk by Indoor Air Pollution Decreased<br> in the Past 30 Years**",
     caption = "Especially in developing countries <span style='color:darkgreen;'>Indoor Air Pollution</span> decreased<br> by up to **11.79%** compared to 1990.",
     theme = theme(
-      plot.title = element_markdown( size = 22),
-      plot.caption = element_markdown( size = 19),
+      plot.title = element_markdown( size = 6),
+      plot.caption = element_markdown( size = 4, halign = 0),
       axis.ticks = element_blank(),
       axis.text = element_blank(),
       axis.title = element_blank(),
-      axis.line = element_blank(),
-      plot.background = element_rect(color = "black")
+      axis.line = element_blank()
     )
   )&
   theme(
     plot.margin = margin(4,3,3,2)
   )
+ggsave(filename = "22-04-12_Indoor_Air_Pollution/pollution.jpg", width = 8, height = 6, units = "in", dpi = 120)
 ```
 
 ```{r}
-
+set_theme(theme_ipsum_rc(base_family = "Roboto Condensed", base_size = 16))
 library(ragg)
 
 ragg::agg_jpeg(
