@@ -1,0 +1,159 @@
+---
+title: "spi_indicators"
+format: html
+author: Jakob Korneli
+---
+
+This week I look at some statistical performance indicators for a range of countries.
+
+```{r, Init}
+
+# loading package loading function
+source("../functions/pkg_load.R") #  for pkg installation and loading
+source("../functions/percent.R") #  calculates percent
+source("../functions/no_legend.R") #  removes legend in ggplot
+#source("./functions/load_fonts.R")
+
+# librarys
+load(c(
+  "tidyverse", "gt", "geomtextpath", "ggridges", "viridis", "hrbrthemes", "ggtext", "patchwork"
+))
+
+#loading data
+data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-12-02/spi_indicators.csv')
+```
+
+```{r, Exploratory Analysis}
+
+#names(data) # 12 columns
+#colSums(is.na(data)) # lots of NA, +- 2900
+nrow(data) # 4340 observations, <half have some NAs
+data_cl <- data[complete.cases(data),] # removing all rows with NAs
+#colSums(is.na(data_cl)) # --> worked
+nrow(data_cl) # 1425
+
+percent(nrow(data_cl)/nrow(data)) # only 32% left
+
+#as.data.frame(table(data_cl$country)) # mostly 8 observations per country
+
+#unique(data_cl$year) # 8 years of data. Originally 20 years
+
+#hist(data_cl$overall_score) # few low end scores, peak in mid range and high range
+
+#summary(data_cl$overall_score) # no 100% score, mean is 64.95
+
+# to make things easier i rename the data
+data <- data_cl
+  
+```
+
+```{r Scatter / Line Plot}
+
+# How do scores develop over time?
+
+# Calculating means of all scores per year
+means <- data |> select(!country) |> 
+  group_by(year) |> 
+  summarise(m.overall = round(mean(overall_score), digits = 2),
+            m.data_use = round(mean(data_use_score),digits = 2),
+            m.services = round(mean(data_services_score),digits = 2),
+            m.products = round(mean(data_products_score),digits = 2),
+            m.sources = round(mean(data_sources_score),digits = 2),
+            m.infrastr = round(mean(data_infrastructure_score),digits = 2))
+
+# nice table
+gt(means)
+
+# converting to long for plotting
+means_long <- means |> pivot_longer(cols = 2:7,
+               names_to = "scorename",
+               values_to = "score")
+
+# aquiring raw data for plotting
+scores_long <- data |> 
+  select(!country & !iso3c & !region & !income & !population) |>
+  pivot_longer(cols = 2:7,
+               names_to = "scorename",
+               values_to = "score")
+
+# manually setting positions for line labels
+scores_long$year <- as.numeric(as.character(scores_long$year))
+pos <-c(rep(0.2, times = 80),
+        rep(0.5, times = 80),
+        rep(0.4, times = 80),
+        rep(0.6, times = 80),
+        rep(0.3, times = 80),
+        rep(0.7, times = 80))
+
+# plotting
+scores<-ggplot(means_long, aes(
+  y = score,
+  x = year ,
+  color = scorename
+))+
+  geom_point(data = scores_long,
+             aes(
+               y = score,
+               x = year
+             ),alpha = 0.03, inherit.aes = F)+
+  geom_labelsmooth(aes(label = scorename), 
+                  hjust = pos,
+                  size = 3,
+                  lwd = 1)+
+  theme_classic()+
+  scale_color_viridis(option = "C", discrete = T)+
+  labs(title = "**Development of Scores<br> throughout the Years**",
+       x = NULL,
+       y = "Score",
+       subtitle = "While <span style = 'color: darkblue;'>data use</span> did not change, <span style = 'color: purple;'>data<br>infrastructure</span>, <span style = 'color: red;'>products</span> and <span style = 'color: orange;'>services</span><br>increased globally.")+
+  theme(plot.title = element_markdown(),
+        plot.subtitle = element_markdown())+
+  no_legend
+```
+
+Looks like a lot of data from the early 2000s and 2010 is missing. So I will focus on 2016 until 2023. Maybe I can get a ridgeline plot of global statistical performance.
+
+```{r Ridgeline Plot}
+
+# How much does the overall score increase?
+mean2016 <- mean(data$overall_score[data$year==2016])
+mean2023 <- mean(data$overall_score[data$year==2023])
+percent(mean2023/mean2016) # 18.9% increase
+
+# making sure classes are right
+data$year <- factor(data$year)
+data$overall_score <- as.numeric(data$overall_score)
+
+#writing the subtitle
+subtitle <- "Since 2016 the global mean statistical<br> performance index rose by almost **19 %**."
+
+# plotting
+dens <- ggplot(data, aes(
+  x = overall_score,
+  y = year,
+  fill = after_stat(x)
+))+
+  geom_density_ridges_gradient()+
+  scale_fill_viridis(discrete = FALSE, option = "C")+
+  geom_vline(xintercept = c(60,90), linetype = 2)+
+  labs(y = NULL,
+       x = "Overall Score",
+       title = "**7 Years of Statistical<br>Performance**",
+       subtitle = subtitle,
+       caption = "*Jakob Korneli | TidyTuesday 2025 week 48*")+
+  theme_classic()+
+  theme(plot.title = element_markdown(),
+        plot.subtitle = element_markdown(),
+        plot.caption = element_markdown())+
+  no_legend
+
+scores + dens
+
+ggsave(
+  filename = "../2025week48/TT25week48.png",
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+```
