@@ -4,6 +4,10 @@
 
 ------------------------------------------------------------------------
 
+Figure for the TidyTuesday 2025 week 48 dataset
+
+![](2025week48/TT25week48.png)
+
 Figure for the Data of the 22-04-12 Dataset on indoor air pollution.
 
 ## ![Indoor air pollution development in Africa and Asia. Mean values of five year bins.](22-04-12_Indoor_Air_Pollution/pollution.jpg)
