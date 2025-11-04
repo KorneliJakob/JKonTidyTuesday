@@ -1,0 +1,122 @@
+---
+title: "2025week19"
+format: html
+author: Jakob Korneli
+---
+
+TidyTuesday 2025 week 19, data from earthquakes around the vesuvius volcano.
+I am going in here with a pretty clear picture in mind, lets see if i can get that to work.
+
+```{r}
+# setting wd to quarto document
+setwd("C:/Users/JakobFreak/Desktop/TidyTuesday/2025week19")
+
+# loading data
+vesuvius <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-05-13/vesuvius.csv')
+
+# loading functions
+source("../functions/pkg_load.R")
+
+# loading pkg
+load(c(
+  "tidyverse",
+  "viridis",
+  "gghalves",
+  "ggdist",
+  "geomtextpath",
+  "ggtext",
+  "ggdark"
+))
+```
+
+```{r, include=FALSE}
+# Manual dark theme (safe with ggplot2 4.0.0)
+theme_dark_safe <- function(base_size = 11, base_family = "") {
+  theme_classic(base_size = base_size, base_family = base_family) %+replace%
+    theme(
+      text = element_text(colour = "white"),
+      axis.text = element_text(colour = "white"),
+      axis.title = element_text(colour = "white"),
+      plot.background = element_rect(fill = "black", colour = NA),
+      panel.background = element_rect(fill = "black", colour = NA),
+      panel.grid = element_line(colour = "gray30"),
+      panel.grid.minor = element_line(colour = "gray20"),
+      legend.background = element_rect(fill = "black", colour = NA),
+      legend.text = element_text(colour = "white"),
+      legend.title = element_text(colour = "white"),
+      strip.background = element_rect(fill = "gray20", colour = NA),
+      strip.text = element_text(colour = "white"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor.y = element_blank()
+    )
+}
+```
+
+
+```{r}
+# filter out the smallest earthquakes
+
+vesuvius <- vesuvius |> 
+  filter(duration_magnitude_md > 0.5 &
+           !is.na(depth_km)) |> 
+  filter(year >2013) |> 
+  mutate(depth_inv = -depth_km) |> 
+  mutate(ref = 0)
+
+depth <- tibble(depth = c(0,0.1,0.2,0.5, 1, 2, 5, 7.5), depth_n = c("surface","100m","200m","500m", "1km", "2km", "5km", "7.5km"))
+
+depth <- depth |> mutate(depth.log = log10(depth+1))
+
+ggplot(vesuvius, aes(
+  x = as.factor(year),
+  y = log10(depth_km+1),
+  color = duration_magnitude_md
+)) +
+  stat_halfeye(
+    aes(fill = after_scale(color)),
+    side = "left",
+    scale = 0.8,
+    adjust = 0.5,
+    alpha = 0.5
+  ) +
+  geom_point(
+    position = position_jitter(width = 0.1),
+    stroke = 2,
+    show.legend = F,
+    aes(alpha = (duration_magnitude_md-mean(duration_magnitude_md))/sd(duration_magnitude_md)
+  )) +
+  scale_color_viridis(option = "inferno") +
+  scale_fill_viridis(option = "inferno") +
+  geom_texthline(data = depth,
+                 hjust = 0,
+                 linetype = 3,
+                 alpha = 0.3,
+                 aes(label = depth_n,
+                     yintercept = depth.log),
+                 inherit.aes = F,
+                 color = "white")+
+  scale_y_reverse()+
+  scale_x_discrete(position = "top")+
+  theme_dark_safe()+
+  theme(text = element_text(family = NULL),
+                plot.title = element_text(family = NULL))+
+  #theme_classic()+
+  theme(axis.text.y = element_blank(),
+        plot.title = element_markdown(),
+        plot.subtitle = element_markdown(),
+        plot.caption = element_markdown())+
+  labs(caption = "*Jakob Korneli | TidyTuesday 2025 week 19*",
+       color = "Md",
+       x = NULL,
+       y = "Depth",
+       title = "Earthquakes at Mount Vesuvius",
+       subtitle = "Over the past decade phases of high earthquake occurence with low<br>intensity, alternated with few high intensity ones, releasing the pressure<br>under the volcano. A slight shift downwards of about 100m is visible.")
+
+ggsave(
+  filename = "vesuvius.png",
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+```
