@@ -4,6 +4,10 @@
 
 ------------------------------------------------------------------------
 
+Figure for the TidyTuesday 2025 week 19 dataset on earthquakes underneath the Mount Vesuvius volcano.
+
+![](2025week19/vesuvius.png)
+
 Figure for the TidyTuesday 2025 week 48 dataset
 
 ![](2025week48/TT25week48.png)
